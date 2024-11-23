@@ -459,18 +459,16 @@ static int create_fixture_variant(struct kutf_test_function *test_func,
 		goto fail_dir;
 	}
 
-	tmp = debugfs_create_file("type", S_IROTH, test_fix->dir, "fixture\n",
-				  &kutf_debugfs_const_string_ops);
-	if (!tmp) {
+	if (!debugfs_create_file("type", S_IROTH, test_fix->dir, "fixture\n",
+         				  &kutf_debugfs_const_string_ops)) {
 		pr_err("Failed to create debugfs file \"type\" when adding fixture\n");
 		/* Might not be the right error, we don't get it passed back to us */
 		err = -EEXIST;
 		goto fail_file;
 	}
 
-	tmp = debugfs_create_file("run", S_IROTH, test_fix->dir, test_fix,
-				  &kutf_debugfs_run_ops);
-	if (!tmp) {
+	if (!debugfs_create_file("run", S_IROTH, test_fix->dir, test_fix,
+         				  &kutf_debugfs_run_ops)) {
 		pr_err("Failed to create debugfs file \"run\" when adding fixture\n");
 		/* Might not be the right error, we don't get it passed back to us */
 		err = -EEXIST;
