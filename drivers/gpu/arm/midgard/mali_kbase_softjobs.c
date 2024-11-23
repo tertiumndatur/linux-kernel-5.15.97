@@ -371,9 +371,10 @@ static void kbase_fence_debug_timeout(struct kbase_jd_atom *katom)
 }
 #endif /* CONFIG_MALI_FENCE_DEBUG */
 
-void kbasep_soft_job_timeout_worker(unsigned long data)
+void kbasep_soft_job_timeout_worker(struct timer_list *timer)
 {
-	struct kbase_context *kctx = (struct kbase_context *)data;
+	struct kbase_context *kctx = container_of(timer, struct kbase_context,
+    			soft_job_timeout);
 	u32 timeout_ms = (u32)atomic_read(
 			&kctx->kbdev->js_data.soft_job_timeout_ms);
 	struct timer_list *timer = &kctx->soft_job_timeout;
@@ -816,9 +817,15 @@ static int kbase_mem_copy_from_extres(struct kbase_context *kctx,
 		if (ret)
 			goto out_unlock;
 
+        struct dma_buf_map map;
 		for (i = 0; i < buf_data->nr_extres_pages; i++) {
+            ret = dma_buf_vmap(dma_buf, &map);
+            if (ret || dma_buf_map_is_null(&map)) {
+                printk(KERN_ERR "Failed to map DMA buffer, index: %d, ret: %d\n", i, ret);
+                continue;
+            }
 
-			void *extres_page = dma_buf_vmap(dma_buf, i);
+			void *extres_page = map.vaddr;
 
 			if (extres_page)
 				kbase_mem_copy_from_extres_page(kctx,
@@ -827,7 +834,7 @@ static int kbase_mem_copy_from_extres(struct kbase_context *kctx,
 						&target_page_nr,
 						offset, &to_copy);
 
-			dma_buf_vunmap(dma_buf, i, extres_page);
+			dma_buf_vunmap(dma_buf, &map);
 			if (target_page_nr >= buf_data->nr_pages)
 				break;
 		}
