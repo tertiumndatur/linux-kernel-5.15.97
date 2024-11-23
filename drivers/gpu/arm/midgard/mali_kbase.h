@@ -65,6 +65,7 @@
 #include "mali_kbase_gpuprops.h"
 #include "mali_kbase_jm.h"
 #include "mali_kbase_vinstr.h"
+#include "mali_kbase_utility.h"
 
 #include "ipa/mali_kbase_ipa.h"
 

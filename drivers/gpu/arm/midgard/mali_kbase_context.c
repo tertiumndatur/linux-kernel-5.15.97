@@ -26,7 +26,7 @@
 #include <mali_kbase_mem_linux.h>
 #include <mali_kbase_dma_fence.h>
 #include <mali_kbase_ctx_sched.h>
-#include <linux/timer.h>
+
 /**
  * kbase_create_context() - Create a kernel base context.
  * @kbdev: Kbase device
@@ -153,9 +153,8 @@ kbase_create_context(struct kbase_device *kbdev, bool is_compat)
 
 	mutex_init(&kctx->vinstr_cli_lock);
 
-	timer_setup(&kctx->soft_job_timeout,
-		    kbasep_soft_job_timeout_worker,
-		    (uintptr_t)kctx);
+	kbase_timer_setup(&kctx->soft_job_timeout,
+    			  kbasep_soft_job_timeout_worker);
 
 	return kctx;
 
