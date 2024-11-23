@@ -522,25 +522,24 @@ void kutf_add_test_with_filters_and_data(
 		goto fail_dir;
 	}
 
-	tmp = debugfs_create_file("type", S_IROTH, test_func->dir, "test\n",
-				  &kutf_debugfs_const_string_ops);
-	if (!tmp) {
+	if (!debugfs_create_file("type", S_IROTH, test_func->dir, "test\n",
+         				  &kutf_debugfs_const_string_ops)) {
 		pr_err("Failed to create debugfs file \"type\" when adding test %s\n", name);
 		goto fail_file;
 	}
 
 	test_func->filters = filters;
-	tmp = debugfs_create_x32("filters", S_IROTH, test_func->dir,
-				 &test_func->filters);
-	if (!tmp) {
+
+	if (!debugfs_create_x32("filters", S_IROTH, test_func->dir,
+         				 &test_func->filters)) {
 		pr_err("Failed to create debugfs file \"filters\" when adding test %s\n", name);
 		goto fail_file;
 	}
 
 	test_func->test_id = id;
-	tmp = debugfs_create_u32("test_id", S_IROTH, test_func->dir,
-				 &test_func->test_id);
-	if (!tmp) {
+
+	if (!debugfs_create_u32("test_id", S_IROTH, test_func->dir,
+         				 &test_func->test_id)) {
 		pr_err("Failed to create debugfs file \"test_id\" when adding test %s\n", name);
 		goto fail_file;
 	}
@@ -651,9 +650,8 @@ struct kutf_suite *kutf_create_suite_with_filters_and_data(
 		goto fail_debugfs;
 	}
 
-	tmp = debugfs_create_file("type", S_IROTH, suite->dir, "suite\n",
-				  &kutf_debugfs_const_string_ops);
-	if (!tmp) {
+	if (!debugfs_create_file("type", S_IROTH, suite->dir, "suite\n",
+         				  &kutf_debugfs_const_string_ops)) {
 		pr_err("Failed to create debugfs file \"type\" when adding test %s\n", name);
 		goto fail_file;
 	}
@@ -759,9 +757,8 @@ struct kutf_application *kutf_create_application(const char *name)
 		goto fail_debugfs;
 	}
 
-	tmp = debugfs_create_file("type", S_IROTH, app->dir, "application\n",
-				  &kutf_debugfs_const_string_ops);
-	if (!tmp) {
+	if (!debugfs_create_file("type", S_IROTH, app->dir, "application\n",
+         				  &kutf_debugfs_const_string_ops)) {
 		pr_err("Failed to create debugfs file \"type\" when creating application %s\n", name);
 		goto fail_file;
 	}
