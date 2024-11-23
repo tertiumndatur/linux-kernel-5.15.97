@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016, Fuzhou Rockchip Electronics Co., Ltd
  * Author: Lin Huang <hl@rock-chips.com>
@@ -15,6 +14,8 @@
 #define ROCKCHIP_SIP_CONFIG_DRAM_GET_RATE	0x05
 #define ROCKCHIP_SIP_CONFIG_DRAM_CLR_IRQ	0x06
 #define ROCKCHIP_SIP_CONFIG_DRAM_SET_PARAM	0x07
-#define ROCKCHIP_SIP_CONFIG_DRAM_SET_ODT_PD	0x08
+#define ROCKCHIP_SIP_CONFIG_DRAM_GET_VERSION	0x08
+#define ROCKCHIP_SIP_CONFIG_DRAM_POST_SET_RATE	0x09
+#define ROCKCHIP_SIP_CONFIG_DRAM_SET_MSCH_RL	0x0a
 
 #endif
