@@ -17,6 +17,14 @@ config DRM_PANEL_ABT_Y030XX067A
 	  Y030XX067A 320x480 3.0" panel as found in the YLM RG-280M, RG-300
 	  and RG-99 handheld gaming consoles.
 
+config DRM_PANEL_UMO_P076MD_T
+    tristate "Support for UMO-P076MD-T MIPI-DSI panel"
+    depends on DRM_MIPI_DSI
+    help
+      Enable support for the UMO-P076MD-T MIPI-DSI panel.
+      Say Y if you want to enable this panel support.
+
+
 config DRM_PANEL_ARM_VERSATILE
 	tristate "ARM Versatile panel driver"
 	depends on OF

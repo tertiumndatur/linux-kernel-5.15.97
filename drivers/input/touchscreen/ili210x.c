@@ -489,6 +489,7 @@ static int ili210x_i2c_probe(struct i2c_client *client,
 static const struct i2c_device_id ili210x_i2c_id[] = {
 	{ "ili210x", (long)&ili210x_chip },
 	{ "ili2117", (long)&ili211x_chip },
+	{ "ili2116", (long)&ili211x_chip },
 	{ "ili2120", (long)&ili212x_chip },
 	{ "ili251x", (long)&ili251x_chip },
 	{ }
@@ -498,6 +499,7 @@ MODULE_DEVICE_TABLE(i2c, ili210x_i2c_id);
 static const struct of_device_id ili210x_dt_ids[] = {
 	{ .compatible = "ilitek,ili210x", .data = &ili210x_chip },
 	{ .compatible = "ilitek,ili2117", .data = &ili211x_chip },
+	{ .compatible = "ilitek,ili2116", .data = &ili211x_chip },
 	{ .compatible = "ilitek,ili2120", .data = &ili212x_chip },
 	{ .compatible = "ilitek,ili251x", .data = &ili251x_chip },
 	{ }
