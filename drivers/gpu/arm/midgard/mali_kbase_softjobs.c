@@ -817,8 +817,9 @@ static int kbase_mem_copy_from_extres(struct kbase_context *kctx,
 		if (ret)
 			goto out_unlock;
 
-        struct dma_buf_map map;
+
 		for (i = 0; i < buf_data->nr_extres_pages; i++) {
+		    struct dma_buf_map map;
             ret = dma_buf_vmap(dma_buf, &map);
             if (ret || dma_buf_map_is_null(&map)) {
                 printk(KERN_ERR "Failed to map DMA buffer, index: %d, ret: %d\n", i, ret);
