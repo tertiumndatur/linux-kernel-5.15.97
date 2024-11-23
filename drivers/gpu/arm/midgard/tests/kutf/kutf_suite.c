@@ -460,11 +460,11 @@ static int create_fixture_variant(struct kutf_test_function *test_func,
 	}
 
     debugfs_create_file("type", S_IROTH, test_fix->dir, "fixture\n",
-             				  &kutf_debugfs_const_string_ops)
+             				  &kutf_debugfs_const_string_ops);
 
 
     debugfs_create_file("run", S_IROTH, test_fix->dir, test_fix,
-             				  &kutf_debugfs_run_ops)
+             				  &kutf_debugfs_run_ops);
 
 
 	list_add(&test_fix->node, &test_func->variant_list);
@@ -515,18 +515,18 @@ void kutf_add_test_with_filters_and_data(
 	}
 
     debugfs_create_file("type", S_IROTH, test_func->dir, "test\n",
-             				  &kutf_debugfs_const_string_ops)
+             				  &kutf_debugfs_const_string_ops);
 
 
 	test_func->filters = filters;
 
     debugfs_create_x32("filters", S_IROTH, test_func->dir,
-             				 &test_func->filters)
+             				 &test_func->filters);
 
 	test_func->test_id = id;
 
     debugfs_create_u32("test_id", S_IROTH, test_func->dir,
-             				 &test_func->test_id)
+             				 &test_func->test_id);
 
 	for (i = 0; i < suite->fixture_variants; i++) {
 		if (create_fixture_variant(test_func, i)) {
@@ -635,7 +635,7 @@ struct kutf_suite *kutf_create_suite_with_filters_and_data(
 	}
 
     debugfs_create_file("type", S_IROTH, suite->dir, "suite\n",
-             				  &kutf_debugfs_const_string_ops)
+             				  &kutf_debugfs_const_string_ops);
 
 
 	INIT_LIST_HEAD(&suite->test_list);
@@ -740,7 +740,7 @@ struct kutf_application *kutf_create_application(const char *name)
 	}
 
     debugfs_create_file("type", S_IROTH, app->dir, "application\n",
-             				  &kutf_debugfs_const_string_ops)
+             				  &kutf_debugfs_const_string_ops);
 
 
 	INIT_LIST_HEAD(&app->suite_list);
