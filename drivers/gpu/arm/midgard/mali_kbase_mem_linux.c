@@ -563,39 +563,17 @@ void kbase_zone_cache_clear(struct kbase_mem_phy_alloc *alloc)
  */
 static void kbase_mem_evictable_mark_reclaim(struct kbase_mem_phy_alloc *alloc)
 {
-	struct kbase_context *kctx = alloc->imported.kctx;
-	struct kbase_mem_zone_cache_entry *zone_cache;
-	int __maybe_unused new_page_count;
-	int err;
+    struct kbase_context *kctx = alloc->imported.native.kctx;
+    int __maybe_unused new_page_count;
 
-	/* Attempt to build a zone cache of tracking */
-	err = kbase_zone_cache_build(alloc);
-	if (err == 0) {
-		/* Bulk update all the zones */
-		list_for_each_entry(zone_cache, &alloc->zone_cache, zone_node) {
-			zone_page_state_add(zone_cache->count,
-					zone_cache->zone, NR_SLAB_RECLAIMABLE);
-		}
-	} else {
-		/* Fall-back to page by page updates */
-		int i;
+    kbase_process_page_usage_dec(kctx, alloc->nents);
+    new_page_count = kbase_atomic_sub_pages(alloc->nents,
+                        &kctx->used_pages);
+    kbase_atomic_sub_pages(alloc->nents, &kctx->kbdev->memdev.used_pages);
 
-		for (i = 0; i < alloc->nents; i++) {
-			struct page *p = phys_to_page(alloc->pages[i]);
-			struct zone *zone = page_zone(p);
-
-			zone_page_state_add(1, zone, NR_SLAB_RECLAIMABLE);
-		}
-	}
-
-	kbase_process_page_usage_dec(kctx, alloc->nents);
-	new_page_count = kbase_atomic_sub_pages(alloc->nents,
-						&kctx->used_pages);
-	kbase_atomic_sub_pages(alloc->nents, &kctx->kbdev->memdev.used_pages);
-
-	KBASE_TLSTREAM_AUX_PAGESALLOC(
-			(u32)kctx->id,
-			(u64)new_page_count);
+    KBASE_TLSTREAM_AUX_PAGESALLOC(
+            kctx->id,
+            (u64)new_page_count);
 }
 
 /**
@@ -1792,8 +1770,9 @@ static void kbase_cpu_vm_close(struct vm_area_struct *vma)
 KBASE_EXPORT_TEST_API(kbase_cpu_vm_close);
 
 
-static int kbase_cpu_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+static int kbase_cpu_vm_fault(struct vm_fault *vmf)
 {
+	struct vm_area_struct *vma = vmf->vma;
 	struct kbase_cpu_mapping *map = vma->vm_private_data;
 	pgoff_t rel_pgoff;
 	size_t i;
@@ -1822,7 +1801,7 @@ static int kbase_cpu_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	addr = (pgoff_t)(vmf->address >> PAGE_SHIFT);
 #endif
 	while (i < map->alloc->nents && (addr < vma->vm_end >> PAGE_SHIFT)) {
-		int ret = vm_insert_pfn(vma, addr << PAGE_SHIFT,
+		int ret = vmf_insert_pfn(vma, addr << PAGE_SHIFT,
 		    PFN_DOWN(map->alloc->pages[i]));
 		if (ret < 0 && ret != -EBUSY)
 			goto locked_bad_fault;
@@ -2086,14 +2065,14 @@ void kbase_os_mem_map_lock(struct kbase_context *kctx)
 {
 	struct mm_struct *mm = current->mm;
 	(void)kctx;
-	down_read(&mm->mmap_sem);
+	mmap_read_lock(mm);
 }
 
 void kbase_os_mem_map_unlock(struct kbase_context *kctx)
 {
 	struct mm_struct *mm = current->mm;
 	(void)kctx;
-	up_read(&mm->mmap_sem);
+	mmap_read_unlock(mm);
 }
 
 static int kbasep_reg_mmap(struct kbase_context *kctx,
