@@ -374,10 +374,9 @@ static void kbase_fence_debug_timeout(struct kbase_jd_atom *katom)
 void kbasep_soft_job_timeout_worker(struct timer_list *timer)
 {
 	struct kbase_context *kctx = container_of(timer, struct kbase_context,
-    			soft_job_timeout);
+			soft_job_timeout);
 	u32 timeout_ms = (u32)atomic_read(
 			&kctx->kbdev->js_data.soft_job_timeout_ms);
-	struct timer_list *timer = &kctx->soft_job_timeout;
 	ktime_t cur_time = ktime_get();
 	bool restarting = false;
 	unsigned long lflags;
