@@ -52,7 +52,7 @@ void kbase_backend_get_gpu_time(struct kbase_device *kbdev, u64 *cycle_counter,
 	} while (hi1 != hi2);
 
 	/* Record the CPU's idea of current time */
-	ktime_get_ts64(ts);
+	ktime_get_raw_ts64(ts);
 
 	kbase_pm_release_gpu_cycle_counter(kbdev);
 }

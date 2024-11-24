@@ -434,7 +434,8 @@ static void kbase_platform_rk_remove_sysfs_files(struct device *dev)
 static int rk3288_get_soc_info(struct device *dev, struct device_node *np,
 			       int *bin, int *process)
 {
-	int ret = -EINVAL, value = -EINVAL;
+	int ret = -EINVAL;
+	u8 value = 0;
 	char *name;
 
 	if (!bin)
@@ -445,7 +446,7 @@ static int rk3288_get_soc_info(struct device *dev, struct device_node *np,
 	else
 		name = "performance";
 	if (of_property_match_string(np, "nvmem-cell-names", name) >= 0) {
-		ret = rockchip_get_efuse_value(np, name, &value);
+		ret = rockchip_nvmem_cell_read_u8(np, name, &value);
 		if (ret) {
 			dev_err(dev, "Failed to get soc performance value\n");
 			goto out;
@@ -466,20 +467,26 @@ out:
 	return ret;
 }
 
+static const struct rockchip_opp_data rk3288_gpu_opp_data = {
+	.get_soc_info = rk3288_get_soc_info,
+};
+
 static const struct of_device_id rockchip_mali_of_match[] = {
 	{
 		.compatible = "rockchip,rk3288",
-		.data = (void *)&rk3288_get_soc_info,
+		.data = (void *)&rk3288_gpu_opp_data,
 	},
 	{
 		.compatible = "rockchip,rk3288w",
-		.data = (void *)&rk3288_get_soc_info,
+		.data = (void *)&rk3288_gpu_opp_data,
 	},
 	{},
 };
 
 int kbase_platform_rk_init_opp_table(struct kbase_device *kbdev)
 {
-	return rockchip_init_opp_table(kbdev->dev, rockchip_mali_of_match,
-				       "gpu_leakage", "mali");
+	rockchip_get_opp_data(rockchip_mali_of_match, &kbdev->opp_info);
+
+	return rockchip_init_opp_table(kbdev->dev, &kbdev->opp_info,
+				       NULL, "mali");
 }

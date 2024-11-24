@@ -147,7 +147,6 @@ static inline int kbase_fence_out_signal(struct kbase_jd_atom *katom,
 	return dma_fence_signal(katom->dma_fence.fence);
 }
 
-
 /**
  * kbase_fence_add_callback() - Add callback on @fence to block @katom
  * @katom: Pointer to katom that will be blocked by @fence

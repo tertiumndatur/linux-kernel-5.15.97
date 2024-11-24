@@ -590,7 +590,7 @@ static u64 kbasep_tlstream_get_timestamp(void)
 	struct timespec64 ts;
 	u64             timestamp;
 
-	ktime_get_ts64(&ts);
+	ktime_get_raw_ts64(&ts);
 	timestamp = (u64)ts.tv_sec * NSECS_IN_SEC + ts.tv_nsec;
 	return timestamp;
 }
@@ -1042,12 +1042,12 @@ static void kbasep_tlstream_flush_stream(enum tl_stream_type stype)
  * Timer is executed periodically to check if any of the stream contains
  * buffer ready to be submitted to user space.
  */
-static void kbasep_tlstream_autoflush_timer_callback(struct timer_list *timer)
+static void kbasep_tlstream_autoflush_timer_callback(struct timer_list *t)
 {
 	enum tl_stream_type stype;
 	int                 rcode;
 
-	CSTD_UNUSED(timer);
+	CSTD_UNUSED(t);
 
 	for (stype = 0; stype < TL_STREAM_TYPE_COUNT; stype++) {
 		struct tl_stream *stream = tl_stream[stype];
@@ -1371,8 +1371,9 @@ int kbase_tlstream_init(void)
 
 	/* Initialize autoflush timer. */
 	atomic_set(&autoflush_timer_active, 0);
-    kbase_timer_setup(&autoflush_timer,
-              kbasep_tlstream_autoflush_timer_callback);
+	timer_setup(&autoflush_timer,
+		    kbasep_tlstream_autoflush_timer_callback,
+		    0);
 
 	return 0;
 }

@@ -68,10 +68,14 @@ int kbase_sync_fence_out_create(struct kbase_jd_atom *katom, int stream_fd)
 	if (!fence)
 		return -ENOMEM;
 
-	/* Take an extra reference to the fence on behalf of the katom.
-	 * This is needed because sync_file_create() will take ownership of
-	 * one of these refs */
+#if (KERNEL_VERSION(4, 9, 67) >= LINUX_VERSION_CODE)
+	/* Take an extra reference to the fence on behalf of the sync_file.
+	 * This is only needed on older kernels where sync_file_create()
+	 * does not take its own reference. This was changed in v4.9.68,
+	 * where sync_file_create() now takes its own reference.
+	 */
 	dma_fence_get(fence);
+#endif
 
 	/* create a sync_file fd representing the fence */
 	sync_file = sync_file_create(fence);
@@ -280,11 +284,11 @@ static void kbase_sync_fence_info_get(struct dma_fence *fence,
 	 */
 	if (dma_fence_is_signaled(fence)) {
 #if (KERNEL_VERSION(4, 11, 0) <= LINUX_VERSION_CODE || \
-     (KERNEL_VERSION(4, 10, 0) > LINUX_VERSION_CODE && \
-      KERNEL_VERSION(4, 9, 68) <= LINUX_VERSION_CODE))
-        int status = fence->error;
+	 (KERNEL_VERSION(4, 10, 0) > LINUX_VERSION_CODE && \
+	  KERNEL_VERSION(4, 9, 68) <= LINUX_VERSION_CODE))
+		int status = fence->error;
 #else
-        int status = fence->status;
+		int status = fence->status;
 #endif
 		if (status < 0)
 			info->status = status; /* signaled with error */
@@ -297,8 +301,11 @@ static void kbase_sync_fence_info_get(struct dma_fence *fence,
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0))
 	scnprintf(info->name, sizeof(info->name), "%u#%u",
 		  fence->context, fence->seqno);
-#else
+#elif (LINUX_VERSION_CODE < KERNEL_VERSION(5, 1, 0))
 	scnprintf(info->name, sizeof(info->name), "%llu#%u",
+		  fence->context, fence->seqno);
+#else
+	scnprintf(info->name, sizeof(info->name), "%llu#%llu",
 		  fence->context, fence->seqno);
 #endif
 }

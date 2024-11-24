@@ -51,7 +51,7 @@
 static struct devfreq_simple_ondemand_data ondemand_data;
 
 static struct monitor_dev_profile mali_mdevp = {
-	.type = MONITOR_TPYE_DEV,
+	.type = MONITOR_TYPE_DEV,
 	.low_temp_adjust = rockchip_monitor_dev_low_temp_adjust,
 	.high_temp_adjust = rockchip_monitor_dev_high_temp_adjust,
 };
@@ -101,15 +101,12 @@ kbase_devfreq_target(struct device *dev, unsigned long *target_freq, u32 flags)
 
 	freq = *target_freq;
 
-	rcu_read_lock();
 	opp = devfreq_recommended_opp(dev, &freq, flags);
 	if (IS_ERR(opp)) {
-		rcu_read_unlock();
 		dev_err(dev, "Failed to get opp (%ld)\n", PTR_ERR(opp));
 		return PTR_ERR(opp);
 	}
 	voltage = dev_pm_opp_get_voltage(opp);
-	rcu_read_unlock();
 
 	nominal_freq = freq;
 
@@ -214,28 +211,24 @@ static int kbase_devfreq_init_freq_table(struct kbase_device *kbdev,
 	unsigned long freq;
 	struct dev_pm_opp *opp;
 
-	rcu_read_lock();
 	count = dev_pm_opp_get_opp_count(kbdev->dev);
 	if (count < 0) {
-		rcu_read_unlock();
 		return count;
 	}
-	rcu_read_unlock();
 
 	dp->freq_table = kmalloc_array(count, sizeof(dp->freq_table[0]),
 				GFP_KERNEL);
 	if (!dp->freq_table)
 		return -ENOMEM;
 
-	rcu_read_lock();
 	for (i = 0, freq = ULONG_MAX; i < count; i++, freq--) {
 		opp = dev_pm_opp_find_freq_floor(kbdev->dev, &freq);
 		if (IS_ERR(opp))
 			break;
+		dev_pm_opp_put(opp);
 
 		dp->freq_table[i] = freq;
 	}
-	rcu_read_unlock();
 
 	if (count != i)
 		dev_warn(kbdev->dev, "Unable to enumerate all OPPs (%d!=%d\n",
@@ -248,16 +241,24 @@ static int kbase_devfreq_init_freq_table(struct kbase_device *kbdev,
 
 static void kbase_devfreq_term_freq_table(struct kbase_device *kbdev)
 {
-	struct devfreq_dev_profile *dp = kbdev->devfreq->profile;
+	struct devfreq_dev_profile *dp = &kbdev->devfreq_profile;
 
 	kfree(dp->freq_table);
+	dp->freq_table = NULL;
+}
+
+static void kbase_devfreq_term_core_mask_table(struct kbase_device *kbdev)
+{
+	kfree(kbdev->opp_table);
+	kbdev->opp_table = NULL;
 }
 
 static void kbase_devfreq_exit(struct device *dev)
 {
 	struct kbase_device *kbdev = dev_get_drvdata(dev);
 
-	kbase_devfreq_term_freq_table(kbdev);
+	if (kbdev)
+		kbase_devfreq_term_freq_table(kbdev);
 }
 
 static int kbase_devfreq_init_core_mask_table(struct kbase_device *kbdev)
@@ -338,7 +339,9 @@ int kbase_devfreq_init(struct kbase_device *kbdev)
 {
 	struct device_node *np = kbdev->dev->of_node;
 	struct devfreq_dev_profile *dp;
+	struct dev_pm_opp *opp;
 	unsigned long opp_rate;
+	unsigned int dyn_power_coeff = 0;
 	int err;
 
 	if (!kbdev->clock) {
@@ -364,18 +367,24 @@ int kbase_devfreq_init(struct kbase_device *kbdev)
 
 	err = kbase_devfreq_init_core_mask_table(kbdev);
 	if (err)
-		return err;
+		goto init_core_mask_table_failed;
 
 	of_property_read_u32(np, "upthreshold",
 			     &ondemand_data.upthreshold);
 	of_property_read_u32(np, "downdifferential",
 			     &ondemand_data.downdifferential);
+	of_property_read_u32(kbdev->dev->of_node, "dynamic-power-coefficient",
+			     &dyn_power_coeff);
+	if (dyn_power_coeff)
+		dp->is_cooling_device = true;
 
 	kbdev->devfreq = devfreq_add_device(kbdev->dev, dp,
 				"simple_ondemand", &ondemand_data);
 	if (IS_ERR(kbdev->devfreq)) {
-		kbase_devfreq_term_freq_table(kbdev);
-		return PTR_ERR(kbdev->devfreq);
+		err = PTR_ERR(kbdev->devfreq);
+		kbdev->devfreq = NULL;
+		dev_err(kbdev->dev, "Fail to add devfreq device(%d)", err);
+		goto devfreq_add_dev_failed;
 	}
 
 	/* devfreq_add_device only copies a few of kbdev->dev's fields, so
@@ -390,12 +399,13 @@ int kbase_devfreq_init(struct kbase_device *kbdev)
 	}
 
 	opp_rate = kbdev->current_freq;
-	rcu_read_lock();
-	devfreq_recommended_opp(kbdev->dev, &opp_rate, 0);
-	rcu_read_unlock();
+	opp = devfreq_recommended_opp(kbdev->dev, &opp_rate, 0);
+	if (!IS_ERR(opp))
+		dev_pm_opp_put(opp);
 	kbdev->devfreq->last_status.current_frequency = opp_rate;
 
 	mali_mdevp.data = kbdev->devfreq;
+	mali_mdevp.opp_info = &kbdev->opp_info;
 	kbdev->mdev_info = rockchip_system_monitor_register(kbdev->dev,
 							    &mali_mdevp);
 	if (IS_ERR(kbdev->mdev_info)) {
@@ -403,14 +413,16 @@ int kbase_devfreq_init(struct kbase_device *kbdev)
 		kbdev->mdev_info = NULL;
 	}
 #ifdef CONFIG_DEVFREQ_THERMAL
+	if (dp->is_cooling_device)
+		return 0;
+
 	err = kbase_ipa_init(kbdev);
 	if (err) {
 		dev_err(kbdev->dev, "IPA initialization failed\n");
 		goto cooling_failed;
 	}
 
-	kbdev->devfreq_cooling = of_devfreq_cooling_register_power(
-			kbdev->dev->of_node,
+	kbdev->devfreq_cooling = devfreq_cooling_em_register(
 			kbdev->devfreq,
 			&kbase_ipa_power_model_ops);
 	if (IS_ERR_OR_NULL(kbdev->devfreq_cooling)) {
@@ -434,6 +446,12 @@ opp_notifier_failed:
 		dev_err(kbdev->dev, "Failed to terminate devfreq (%d)\n", err);
 	else
 		kbdev->devfreq = NULL;
+
+devfreq_add_dev_failed:
+	kbase_devfreq_term_core_mask_table(kbdev);
+
+init_core_mask_table_failed:
+	kbase_devfreq_term_freq_table(kbdev);
 
 	return err;
 }
@@ -460,5 +478,5 @@ void kbase_devfreq_term(struct kbase_device *kbdev)
 	else
 		kbdev->devfreq = NULL;
 
-	kfree(kbdev->opp_table);
+	kbase_devfreq_term_core_mask_table(kbdev);
 }

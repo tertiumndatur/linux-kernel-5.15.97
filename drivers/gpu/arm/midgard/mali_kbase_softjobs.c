@@ -371,12 +371,12 @@ static void kbase_fence_debug_timeout(struct kbase_jd_atom *katom)
 }
 #endif /* CONFIG_MALI_FENCE_DEBUG */
 
-void kbasep_soft_job_timeout_worker(struct timer_list *timer)
+void kbasep_soft_job_timeout_worker(struct timer_list *t)
 {
-	struct kbase_context *kctx = container_of(timer, struct kbase_context,
-			soft_job_timeout);
+	struct kbase_context *kctx = from_timer(kctx, t, soft_job_timeout);
 	u32 timeout_ms = (u32)atomic_read(
 			&kctx->kbdev->js_data.soft_job_timeout_ms);
+	struct timer_list *timer = &kctx->soft_job_timeout;
 	ktime_t cur_time = ktime_get();
 	bool restarting = false;
 	unsigned long lflags;
@@ -759,6 +759,36 @@ static void kbase_mem_copy_from_extres_page(struct kbase_context *kctx,
 	kunmap(pages[*target_page_nr]);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
+static void *dma_buf_kmap_page(struct kbase_mem_phy_alloc *gpu_alloc,
+	unsigned long page_num, struct page **page)
+{
+	struct sg_table *sgt = gpu_alloc->imported.umm.sgt;
+	struct sg_page_iter sg_iter;
+	unsigned long page_index = 0;
+
+	if (WARN_ON(gpu_alloc->type != KBASE_MEM_TYPE_IMPORTED_UMM))
+		return NULL;
+
+	if (!sgt)
+		return NULL;
+
+	if (WARN_ON(page_num >= gpu_alloc->nents))
+		return NULL;
+
+	for_each_sg_page(sgt->sgl, &sg_iter, sgt->nents, 0) {
+		if (page_index == page_num) {
+			*page = sg_page_iter_page(&sg_iter);
+
+			return kmap(*page);
+		}
+		page_index++;
+	}
+
+	return NULL;
+}
+#endif
+
 static int kbase_mem_copy_from_extres(struct kbase_context *kctx,
 		struct kbase_debug_copy_buffer *buf_data)
 {
@@ -816,16 +846,14 @@ static int kbase_mem_copy_from_extres(struct kbase_context *kctx,
 		if (ret)
 			goto out_unlock;
 
-
 		for (i = 0; i < buf_data->nr_extres_pages; i++) {
-		    struct dma_buf_map map;
-            ret = dma_buf_vmap(dma_buf, &map);
-            if (ret || dma_buf_map_is_null(&map)) {
-                printk(KERN_ERR "Failed to map DMA buffer, index: %d, ret: %d\n", i, ret);
-                continue;
-            }
 
-			void *extres_page = map.vaddr;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
+			struct page *pg;
+			void *extres_page = dma_buf_kmap_page(gpu_alloc, i, &pg);
+#else
+			void *extres_page = dma_buf_kmap(dma_buf, i);
+#endif
 
 			if (extres_page)
 				kbase_mem_copy_from_extres_page(kctx,
@@ -834,7 +862,11 @@ static int kbase_mem_copy_from_extres(struct kbase_context *kctx,
 						&target_page_nr,
 						offset, &to_copy);
 
-			dma_buf_vunmap(dma_buf, &map);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
+			kunmap(pg);
+#else
+			dma_buf_kunmap(dma_buf, i, extres_page);
+#endif
 			if (target_page_nr >= buf_data->nr_pages)
 				break;
 		}

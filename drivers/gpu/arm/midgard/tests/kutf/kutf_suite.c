@@ -459,13 +459,23 @@ static int create_fixture_variant(struct kutf_test_function *test_func,
 		goto fail_dir;
 	}
 
-    debugfs_create_file("type", S_IROTH, test_fix->dir, "fixture\n",
-             				  &kutf_debugfs_const_string_ops);
+	tmp = debugfs_create_file("type", S_IROTH, test_fix->dir, "fixture\n",
+				  &kutf_debugfs_const_string_ops);
+	if (!tmp) {
+		pr_err("Failed to create debugfs file \"type\" when adding fixture\n");
+		/* Might not be the right error, we don't get it passed back to us */
+		err = -EEXIST;
+		goto fail_file;
+	}
 
-
-    debugfs_create_file("run", S_IROTH, test_fix->dir, test_fix,
-             				  &kutf_debugfs_run_ops);
-
+	tmp = debugfs_create_file("run", S_IROTH, test_fix->dir, test_fix,
+				  &kutf_debugfs_run_ops);
+	if (!tmp) {
+		pr_err("Failed to create debugfs file \"run\" when adding fixture\n");
+		/* Might not be the right error, we don't get it passed back to us */
+		err = -EEXIST;
+		goto fail_file;
+	}
 
 	list_add(&test_fix->node, &test_func->variant_list);
 	return 0;
@@ -514,19 +524,28 @@ void kutf_add_test_with_filters_and_data(
 		goto fail_dir;
 	}
 
-    debugfs_create_file("type", S_IROTH, test_func->dir, "test\n",
-             				  &kutf_debugfs_const_string_ops);
-
+	tmp = debugfs_create_file("type", S_IROTH, test_func->dir, "test\n",
+				  &kutf_debugfs_const_string_ops);
+	if (!tmp) {
+		pr_err("Failed to create debugfs file \"type\" when adding test %s\n", name);
+		goto fail_file;
+	}
 
 	test_func->filters = filters;
-
-    debugfs_create_x32("filters", S_IROTH, test_func->dir,
-             				 &test_func->filters);
+	tmp = debugfs_create_x32("filters", S_IROTH, test_func->dir,
+				 &test_func->filters);
+	if (!tmp) {
+		pr_err("Failed to create debugfs file \"filters\" when adding test %s\n", name);
+		goto fail_file;
+	}
 
 	test_func->test_id = id;
-
-    debugfs_create_u32("test_id", S_IROTH, test_func->dir,
-             				 &test_func->test_id);
+	tmp = debugfs_create_u32("test_id", S_IROTH, test_func->dir,
+				 &test_func->test_id);
+	if (!tmp) {
+		pr_err("Failed to create debugfs file \"test_id\" when adding test %s\n", name);
+		goto fail_file;
+	}
 
 	for (i = 0; i < suite->fixture_variants; i++) {
 		if (create_fixture_variant(test_func, i)) {
@@ -634,9 +653,12 @@ struct kutf_suite *kutf_create_suite_with_filters_and_data(
 		goto fail_debugfs;
 	}
 
-    debugfs_create_file("type", S_IROTH, suite->dir, "suite\n",
-             				  &kutf_debugfs_const_string_ops);
-
+	tmp = debugfs_create_file("type", S_IROTH, suite->dir, "suite\n",
+				  &kutf_debugfs_const_string_ops);
+	if (!tmp) {
+		pr_err("Failed to create debugfs file \"type\" when adding test %s\n", name);
+		goto fail_file;
+	}
 
 	INIT_LIST_HEAD(&suite->test_list);
 	suite->app = app;
@@ -739,9 +761,12 @@ struct kutf_application *kutf_create_application(const char *name)
 		goto fail_debugfs;
 	}
 
-    debugfs_create_file("type", S_IROTH, app->dir, "application\n",
-             				  &kutf_debugfs_const_string_ops);
-
+	tmp = debugfs_create_file("type", S_IROTH, app->dir, "application\n",
+				  &kutf_debugfs_const_string_ops);
+	if (!tmp) {
+		pr_err("Failed to create debugfs file \"type\" when creating application %s\n", name);
+		goto fail_file;
+	}
 
 	INIT_LIST_HEAD(&app->suite_list);
 	app->name = name;

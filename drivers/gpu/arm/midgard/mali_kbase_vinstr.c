@@ -893,7 +893,7 @@ static u64 kbasep_vinstr_get_timestamp(void)
 {
 	struct timespec64 ts;
 
-	ktime_get_ts64(&ts);
+	ktime_get_raw_ts64(&ts);
 	return (u64)ts.tv_sec * NSECS_IN_SEC + ts.tv_nsec;
 }
 

@@ -40,6 +40,7 @@
 #include <linux/vmalloc.h>
 #include <linux/wait.h>
 #include <linux/workqueue.h>
+#include <linux/sched/task_stack.h>
 
 #include "mali_base_kernel.h"
 #include <mali_kbase_uku.h>
@@ -65,7 +66,6 @@
 #include "mali_kbase_gpuprops.h"
 #include "mali_kbase_jm.h"
 #include "mali_kbase_vinstr.h"
-#include "mali_kbase_utility.h"
 
 #include "ipa/mali_kbase_ipa.h"
 
@@ -209,7 +209,7 @@ int kbase_soft_event_update(struct kbase_context *kctx,
 
 bool kbase_replay_process(struct kbase_jd_atom *katom);
 
-void kbasep_soft_job_timeout_worker(struct timer_list *timer);
+void kbasep_soft_job_timeout_worker(struct timer_list *t);
 void kbasep_complete_triggered_soft_events(struct kbase_context *kctx, u64 evt);
 
 /* api used internally for register access. Contains validation and tracing */
