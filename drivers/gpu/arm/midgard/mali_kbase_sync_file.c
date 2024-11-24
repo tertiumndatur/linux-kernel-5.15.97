@@ -286,7 +286,7 @@ static void kbase_sync_fence_info_get(struct dma_fence *fence,
 #else
         int status = fence->status;
 #endif
-		if (fence->status < 0)
+		if (status < 0)
 			info->status = fence->status; /* signaled with error */
 		else
 			info->status = 1; /* signaled with success */
