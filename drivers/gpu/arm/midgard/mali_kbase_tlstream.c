@@ -587,10 +587,10 @@ atomic_t kbase_tlstream_enabled = {0};
  */
 static u64 kbasep_tlstream_get_timestamp(void)
 {
-	struct timespec ts;
+	struct timespec64 ts;
 	u64             timestamp;
 
-	getrawmonotonic(&ts);
+	ktime_get_ts64(&ts);
 	timestamp = (u64)ts.tv_sec * NSECS_IN_SEC + ts.tv_nsec;
 	return timestamp;
 }
@@ -1371,9 +1371,8 @@ int kbase_tlstream_init(void)
 
 	/* Initialize autoflush timer. */
 	atomic_set(&autoflush_timer_active, 0);
-	setup_timer(&autoflush_timer,
-			kbasep_tlstream_autoflush_timer_callback,
-			0);
+    kbase_timer_setup(&autoflush_timer,
+              kbasep_tlstream_autoflush_timer_callback);
 
 	return 0;
 }

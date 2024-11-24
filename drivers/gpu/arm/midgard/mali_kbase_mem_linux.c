@@ -563,17 +563,39 @@ void kbase_zone_cache_clear(struct kbase_mem_phy_alloc *alloc)
  */
 static void kbase_mem_evictable_mark_reclaim(struct kbase_mem_phy_alloc *alloc)
 {
-    struct kbase_context *kctx = alloc->imported.kctx;
-    int __maybe_unused new_page_count;
+	struct kbase_context *kctx = alloc->imported.kctx;
+	struct kbase_mem_zone_cache_entry *zone_cache;
+	int __maybe_unused new_page_count;
+	int err;
 
-    kbase_process_page_usage_dec(kctx, alloc->nents);
-    new_page_count = kbase_atomic_sub_pages(alloc->nents,
-                        &kctx->used_pages);
-    kbase_atomic_sub_pages(alloc->nents, &kctx->kbdev->memdev.used_pages);
+	/* Attempt to build a zone cache of tracking */
+	err = kbase_zone_cache_build(alloc);
+	if (err == 0) {
+		/* Bulk update all the zones */
+		list_for_each_entry(zone_cache, &alloc->zone_cache, zone_node) {
+			zone_page_state_add(zone_cache->count,
+					zone_cache->zone, NR_SLAB_RECLAIMABLE_B);
+		}
+	} else {
+		/* Fall-back to page by page updates */
+		int i;
 
-    KBASE_TLSTREAM_AUX_PAGESALLOC(
-            kctx->id,
-            (u64)new_page_count);
+		for (i = 0; i < alloc->nents; i++) {
+			struct page *p = phys_to_page(alloc->pages[i]);
+			struct zone *zone = page_zone(p);
+
+			zone_page_state_add(1, zone, NR_SLAB_RECLAIMABLE_B);
+		}
+	}
+
+	kbase_process_page_usage_dec(kctx, alloc->nents);
+	new_page_count = kbase_atomic_sub_pages(alloc->nents,
+						&kctx->used_pages);
+	kbase_atomic_sub_pages(alloc->nents, &kctx->kbdev->memdev.used_pages);
+
+	KBASE_TLSTREAM_AUX_PAGESALLOC(
+			(u32)kctx->id,
+			(u64)new_page_count);
 }
 
 /**
@@ -584,7 +606,9 @@ static
 void kbase_mem_evictable_unmark_reclaim(struct kbase_mem_phy_alloc *alloc)
 {
 	struct kbase_context *kctx = alloc->imported.kctx;
+	struct kbase_mem_zone_cache_entry *zone_cache;
 	int __maybe_unused new_page_count;
+	int err;
 
 	new_page_count = kbase_atomic_add_pages(alloc->nents,
 						&kctx->used_pages);
@@ -592,11 +616,31 @@ void kbase_mem_evictable_unmark_reclaim(struct kbase_mem_phy_alloc *alloc)
 
 	/* Increase mm counters so that the allocation is accounted for
 	 * against the process and thus is visible to the OOM killer,
-	 */
+	 * then remove it from the reclaimable accounting. */
 	kbase_process_page_usage_inc(kctx, alloc->nents);
 
+	/* Attempt to build a zone cache of tracking */
+	err = kbase_zone_cache_build(alloc);
+	if (err == 0) {
+		/* Bulk update all the zones */
+		list_for_each_entry(zone_cache, &alloc->zone_cache, zone_node) {
+			zone_page_state_add(-zone_cache->count,
+					zone_cache->zone, NR_SLAB_RECLAIMABLE_B);
+		}
+	} else {
+		/* Fall-back to page by page updates */
+		int i;
+
+		for (i = 0; i < alloc->nents; i++) {
+			struct page *p = phys_to_page(alloc->pages[i]);
+			struct zone *zone = page_zone(p);
+
+			zone_page_state_add(-1, zone, NR_SLAB_RECLAIMABLE_B);
+		}
+	}
+
 	KBASE_TLSTREAM_AUX_PAGESALLOC(
-			kctx->id,
+			(u32)kctx->id,
 			(u64)new_page_count);
 }
 
