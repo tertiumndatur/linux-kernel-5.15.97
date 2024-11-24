@@ -563,7 +563,7 @@ void kbase_zone_cache_clear(struct kbase_mem_phy_alloc *alloc)
  */
 static void kbase_mem_evictable_mark_reclaim(struct kbase_mem_phy_alloc *alloc)
 {
-    struct kbase_context *kctx = alloc->imported.native.kctx;
+    struct kbase_context *kctx = alloc->imported.kctx;
     int __maybe_unused new_page_count;
 
     kbase_process_page_usage_dec(kctx, alloc->nents);
@@ -583,7 +583,7 @@ static void kbase_mem_evictable_mark_reclaim(struct kbase_mem_phy_alloc *alloc)
 static
 void kbase_mem_evictable_unmark_reclaim(struct kbase_mem_phy_alloc *alloc)
 {
-	struct kbase_context *kctx = alloc->imported.native.kctx;
+	struct kbase_context *kctx = alloc->imported.kctx;
 	int __maybe_unused new_page_count;
 
 	new_page_count = kbase_atomic_add_pages(alloc->nents,
