@@ -2,11 +2,12 @@
 #ifndef __SOC_ROCKCHIP_PVTM_H
 #define __SOC_ROCKCHIP_PVTM_H
 
-#ifdef CONFIG_ROCKCHIP_PVTM
-u32 rockchip_get_pvtm_value(unsigned int ch, unsigned int sub_ch,
+#if IS_ENABLED(CONFIG_ROCKCHIP_PVTM)
+u32 rockchip_get_pvtm_value(unsigned int id, unsigned int ring_sel,
 			    unsigned int time_us);
 #else
-static inline u32 rockchip_get_pvtm_value(unsigned int ch, unsigned int sub_ch,
+static inline u32 rockchip_get_pvtm_value(unsigned int id,
+					  unsigned int ring_sel,
 					  unsigned int time_us)
 {
 	return 0;
