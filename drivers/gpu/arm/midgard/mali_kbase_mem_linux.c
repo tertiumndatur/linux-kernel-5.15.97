@@ -583,10 +583,8 @@ static void kbase_mem_evictable_mark_reclaim(struct kbase_mem_phy_alloc *alloc)
 static
 void kbase_mem_evictable_unmark_reclaim(struct kbase_mem_phy_alloc *alloc)
 {
-	struct kbase_context *kctx = alloc->imported.kctx;
-	struct kbase_mem_zone_cache_entry *zone_cache;
+	struct kbase_context *kctx = alloc->imported.native.kctx;
 	int __maybe_unused new_page_count;
-	int err;
 
 	new_page_count = kbase_atomic_add_pages(alloc->nents,
 						&kctx->used_pages);
@@ -594,31 +592,11 @@ void kbase_mem_evictable_unmark_reclaim(struct kbase_mem_phy_alloc *alloc)
 
 	/* Increase mm counters so that the allocation is accounted for
 	 * against the process and thus is visible to the OOM killer,
-	 * then remove it from the reclaimable accounting. */
+	 */
 	kbase_process_page_usage_inc(kctx, alloc->nents);
 
-	/* Attempt to build a zone cache of tracking */
-	err = kbase_zone_cache_build(alloc);
-	if (err == 0) {
-		/* Bulk update all the zones */
-		list_for_each_entry(zone_cache, &alloc->zone_cache, zone_node) {
-			zone_page_state_add(-zone_cache->count,
-					zone_cache->zone, NR_SLAB_RECLAIMABLE);
-		}
-	} else {
-		/* Fall-back to page by page updates */
-		int i;
-
-		for (i = 0; i < alloc->nents; i++) {
-			struct page *p = phys_to_page(alloc->pages[i]);
-			struct zone *zone = page_zone(p);
-
-			zone_page_state_add(-1, zone, NR_SLAB_RECLAIMABLE);
-		}
-	}
-
 	KBASE_TLSTREAM_AUX_PAGESALLOC(
-			(u32)kctx->id,
+			kctx->id,
 			(u64)new_page_count);
 }
 
@@ -1770,7 +1748,7 @@ static void kbase_cpu_vm_close(struct vm_area_struct *vma)
 KBASE_EXPORT_TEST_API(kbase_cpu_vm_close);
 
 
-static int kbase_cpu_vm_fault(struct vm_fault *vmf)
+static vm_fault_t kbase_cpu_vm_fault(struct vm_fault *vmf)
 {
 	struct vm_area_struct *vma = vmf->vma;
 	struct kbase_cpu_mapping *map = vma->vm_private_data;
@@ -1883,7 +1861,7 @@ static int kbase_cpu_mmap(struct kbase_va_region *reg, struct vm_area_struct *vm
 		for (i = 0; i < nr_pages; i++) {
 			unsigned long pfn = PFN_DOWN(page_array[i + start_off]);
 
-			err = vm_insert_pfn(vma, addr, pfn);
+			err = vmf_insert_pfn(vma, addr, pfn);
 			if (WARN_ON(err))
 				break;
 
