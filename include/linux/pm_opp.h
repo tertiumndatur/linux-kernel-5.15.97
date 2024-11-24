@@ -26,6 +26,13 @@ enum dev_pm_opp_event {
 	OPP_EVENT_ADJUST_VOLTAGE,
 };
 
+typedef int (*config_regulators_t)(struct device *dev,
+			struct dev_pm_opp *old_opp, struct dev_pm_opp *new_opp,
+			struct regulator **regulators, unsigned int count);
+
+typedef int (*config_clks_t)(struct device *dev, struct opp_table *opp_table,
+			struct dev_pm_opp *opp, void *data, bool scaling_down);
+
 /**
  * struct dev_pm_opp_supply - Power supply voltage/current values
  * @u_volt:	Target voltage in microvolts corresponding to this OPP
